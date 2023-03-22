@@ -206,13 +206,19 @@ def main():
             cam_region = 'Fongoli'
         
         folder = df_cams['filename'].iloc[int(site_index)]
+        triggerHours = df_cams['hours'].iloc[int(site_index)]
+
+        triggerHours = pd.DataFrame(triggerHours)
+        triggerHours.columns = ['Hour']
+        fig = px.histogram(triggerHours, x = 'Hour')
 
         image_path = f"./site_info/Sample_images/{cam_region}/{folder}/sample.jpg"
-        plot_path = f"./site_info/Sample_images/{cam_region}/{folder}/hist.png"
-
+        #plot_path = f"./site_info/Sample_images/{cam_region}/{folder}/hist.png"        
         
         st.image(image_path)
-        st.image(plot_path)
+        #st.image(plot_path)
+        st.plotly_chart(fig, theme = "streamlit", use_container_width = True)
+
 
 
 
