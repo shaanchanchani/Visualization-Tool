@@ -9,6 +9,7 @@ import os
 import re
 import glob2
 
+#Loads GEOJSON file containing Senegal's bounds
 def getSenegalBounds():
     with open('senegal.geojson', 'r') as f:
         senegal_geojson = json.load(f)
@@ -32,11 +33,6 @@ def getSenegalBounds():
         return None
 
 #Returns Pandas dataframe containing JSON data 
-
-def loadSampleImages():
-    arr = []
-
-
 def loadJSONData():
     json_data = []
     locs = ['Assirik','Fongoli']
@@ -56,6 +52,7 @@ def loadJSONData():
 
     return df 
 
+#Returns zoom location for Fongoli by averaging the lat_lon of Fongoli sites
 def calcFongoliCenter():
     json_data = []
     path_to_json = "./site_info/Additional_summary_2/Fongoli/"
@@ -77,6 +74,7 @@ def calcFongoliCenter():
 
     return ([lat_total/count,(lon_total/count)+0.0505])
 
+#Returns zoom location for Assirik by averaging the lat_lon of Assirik sites
 def calcAssirikCenter():
     json_data = []
     path_to_json = "./site_info/Additional_summary_2/Assirik/"
@@ -98,38 +96,36 @@ def calcAssirikCenter():
         
     return ([lat_total/count,lon_total/count])
 
+# Call-back function to change zoom location session state whenever the Assirik and Fongoli buttons are pressed
 def handle_zoom_click():
-    assirik_center = calcAssirikCenter()
-    fongoli_center = calcFongoliCenter()
-
     if st.session_state.ass_button:
-        st.session_state.location = assirik_center
+        st.session_state.location = calcAssirikCenter()
         st.session_state.zoom = 13
     elif st.session_state.fon_button:
-        st.session_state.location = fongoli_center
+        st.session_state.location = calcFongoliCenter()
         st.session_state.zoom = 13
 
+# Call-back function to change show_cams session state whenever the Toggle Site Markers checkbox is clicked
 def handle_cam_toggle_click():
-    #del st.session_state['cams']
     if st.session_state.choice:
         st.session_state.show_cams = 'Y'
     else: 
         st.session_state.show_cams = 'N'
 
+# Call-back function to change the map tile session state whenever the map view option is switched
 def handle_map_view_click():
-    map_view_types = {#'Standard' : ['https://server.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}', 'Tiles &copy; Esri &mdash; National Geographic, Esri, DeLorme, NAVTEQ, UNEP-WCMC, USGS, NASA, ESA, METI, NRCAN, GEBCO, NOAA, iPC'],
+    map_view_types = {
                         'Standard' : ['openstreetmap', None],
                         'Topographical' : ['https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', 'Map data: &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, <a href="http://viewfinderpanoramas.org">SRTM</a> | Map style: &copy; <a href="https://opentopomap.org">OpenTopoMap</a> (<a href="https://creativecommons.org/licenses/by-sa/3.0/">CC-BY-SA</a>)'],
                         'Satellite' : ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community']
-                        }
+                    }
     if st.session_state.map_choice:
         st.session_state.tile = map_view_types[st.session_state.map_choice]
-
 
 def main():
     APP_TITLE = 'Project HUNTRESS Visualization Tool'
     st.set_page_config(APP_TITLE)
-    #hide Streamlit menu and ugly watermark
+    #hides Streamlit menu and ugly watermark
     hide_streamlit_style = """
             <style>
             #MainMenu {visibility: hidden;}
@@ -139,50 +135,48 @@ def main():
     st.markdown(hide_streamlit_style, unsafe_allow_html=True)
     #Reduce padding above header from 6rem to 1rem
     st.write('<style>div.block-container{padding-top:1rem;}</style>', unsafe_allow_html=True)
-
     st.title(APP_TITLE)
     st.write("Data courtesy of Direction des Parcs Nationaux, Direction des Forêts et Chasses, Recherche Chimpanzé Assirik, Fongoli Savanna Chimpanzee Project, Papa Ibnou Ndiaye, and Jill Pruetz.")
+    #Function calls to load data from JSON files and load bounds of Senegal from GEOJSON files
     df_cams = loadJSONData()
     senegal_bounds = getSenegalBounds()
     
+    #Initializes session state variables 
     if 'show_cams' not in st.session_state: st.session_state['show_cams'] = 'N'
-
     if 'location' not in st.session_state: st.session_state['location'] = [12.90427, -12.39464]
-    
     if 'zoom' not in st.session_state: st.session_state['zoom'] = 8
-
     if 'cams' not in st.session_state: st.session_state['cams'] = []
+    if 'tile' not in st.session_state: st.session_state['tile'] = ['openstreetmap',None] #Format- Map_Type : [Tile, Attribution]
 
-    #Format- Map_Type : [Tile, Attribution]
-    if 'tile' not in st.session_state: st.session_state['tile'] = ['openstreetmap',None]#['https://server.arcgisonline.com/ArcGIS/rest/services/NatGeo_World_Map/MapServer/tile/{z}/{y}/{x}', 'Tiles &copy; Esri &mdash; National Geographic, Esri, DeLorme, NAVTEQ, UNEP-WCMC, USGS, NASA, ESA, METI, NRCAN, GEBCO, NOAA, iPC']
-
+    #Sidebar Input Widgets; Argument passed to on_click and on_change is the corresponding 
+    #call back function to update session state variables
     toggle_map_view = st.sidebar.radio("Map View:", ['Standard','Topographical','Satellite'], on_change = handle_map_view_click, key = 'map_choice')
-
-    col1, col2 = st.sidebar.columns(2)
     st.sidebar.write('Zoom to')
-    with col1:
-        st.sidebar.button('Assirik', on_click = handle_zoom_click, key = 'ass_button')
-    with col2:
-        st.sidebar.button('Fongoli', on_click = handle_zoom_click, key = 'fon_button')
+    st.sidebar.button('Assirik', on_click = handle_zoom_click, key = 'ass_button')
+    st.sidebar.button('Fongoli', on_click = handle_zoom_click, key = 'fon_button')
+    st.sidebar.checkbox("Toggle Site Markers", on_change = handle_cam_toggle_click, key='choice', value = False)
 
-    st.sidebar.checkbox("Toggle Site Markers", on_change=handle_cam_toggle_click, key='choice', value = False)
-
+    # Updates session state for cameras based on the show_cams session state
+    # Session state variable for cameras is a list of tuples containing the latitude and longtitude of each site and 
+    # the index position of the site in the dataframe
     if st.session_state['show_cams'] == 'N':
-        cam_list = [([84.86752,179.93875],0)]
+        cam_list = [([84.86752,179.93875],0)] 
     elif st.session_state['show_cams'] == 'Y':
         cam_list = []
         for index, row in df_cams.iterrows():
             cam_list.append((row['latlon'],index))
-    
     st.session_state.cams = cam_list
 
+    #Initializes a folium map 
     map = folium.Map(location = [12.90427, -12.39464], tiles = st.session_state.tile[0], attr = st.session_state.tile[1], zoom_start = 5, max_zoom = 20, min_zoom=2, max_bounds_viscosity = 1.0, max_bounds = True, bounds = senegal_bounds)
 
+    #Creates a folium feature group of cameras based on the session state variable for cams 
+    # Sets marker location to the camera's lat-lon and hover information to site index
     fg = folium.FeatureGroup(name = "Cams")
-
     for cam in st.session_state["cams"]:
         fg.add_child(folium.Marker(location = cam[0], tooltip = f"Site {cam[1]}"))
-
+    
+    #Displays folium map based on session state variables. Configured to return the last clicked object's tool tip (hover information)
     st_map = st_folium(
         map,
         center = st.session_state['location'],
@@ -193,11 +187,16 @@ def main():
         returned_objects=["last_object_clicked_tooltip"]
         )
     
+    # This block of code allows us to display different components when each site marker is selected.
+    # Tooltip is the information displayed whenever the mouse is hovering over the map object.
+    # The tooltip for the site markers is the index position of the site in the dataframe containing every site.
+    # It appears as "Site: X"
     if st_map["last_object_clicked_tooltip"]:
-        #st.write(st_map["last_object_clicked_tooltip"])
+        # Regex the tooltip string to just an integer containing the site index 
         site_index = re.sub(r'[a-z]', '', st_map["last_object_clicked_tooltip"].lower())
-        #st.write(df_cams['filename'].iloc[int(site_index)])
 
+        #Hard-coded based on the dataframe. A better way to do this would've been adding a column 
+        #specifiying the site region when the data was loaded in from the JSON files.
         if int(site_index) < 10:
             #Assirik
             cam_region = 'Assirik'
@@ -205,18 +204,20 @@ def main():
             #Fongoli 
             cam_region = 'Fongoli'
         
+        #Locates the name of the camera and the array of trigger hours using the index position of the site in the dataframe
         folder = df_cams['filename'].iloc[int(site_index)]
         triggerHours = df_cams['hours'].iloc[int(site_index)]
 
+        #Loads the array of trigger hours in its own dataframe and sends the dataframe to a Plotly chart
         triggerHours = pd.DataFrame(triggerHours)
         triggerHours.columns = ['Hour']
         fig = px.histogram(triggerHours, x = 'Hour')
 
+        #Finds a sample image of the site based on it's region and name 
         image_path = f"./site_info/Sample_images/{cam_region}/{folder}/sample.jpg"
-        #plot_path = f"./site_info/Sample_images/{cam_region}/{folder}/hist.png"        
         
+        #Displays chart and image 
         st.image(image_path)
-        #st.image(plot_path)
         st.plotly_chart(fig, theme = "streamlit", use_container_width = True)
 
 
