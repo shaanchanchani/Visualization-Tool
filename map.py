@@ -8,6 +8,21 @@ import json
 import os
 import re
 import glob2
+from openmeteo_py import Hourly, Daily, Options, OWmanager
+import datetime
+
+def getWeatherData(latitude,longitude):
+    # Create Open Meteo API manager
+    hourly = Hourly()
+    daily = Daily()
+    options = Options(latitude, longitude)
+
+    mgr = OWmanager(options,
+                    hourly.all()
+                    )
+    df = mgr.get_data(output=3)
+    return df
+
 
 #Loads GEOJSON file containing Senegal's bounds
 def getSenegalBounds():
@@ -126,13 +141,13 @@ def main():
     APP_TITLE = 'Project HUNTRESS Visualization Tool'
     st.set_page_config(APP_TITLE)
     #hides Streamlit menu and ugly watermark
-    hide_streamlit_style = """
-            <style>
-            #MainMenu {visibility: hidden;}
-            footer {visibility: hidden;}
-            </style>
-            """
-    st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+    # hide_streamlit_style = """
+    #         <style>
+    #         #MainMenu {visibility: hidden;}
+    #         footer {visibility: hidden;}
+    #         </style>
+    #         """
+    # st.markdown(hide_streamlit_style, unsafe_allow_html=True)
     #Reduce padding above header from 6rem to 1rem
     st.write('<style>div.block-container{padding-top:1rem;}</style>', unsafe_allow_html=True)
     st.title(APP_TITLE)
@@ -193,6 +208,7 @@ def main():
     # It appears as "Site: X"
     if st_map["last_object_clicked_tooltip"]:
         # Regex the tooltip string to just an integer containing the site index 
+        st.subheader(st_map["last_object_clicked_tooltip"])
         site_index = re.sub(r'[a-z]', '', st_map["last_object_clicked_tooltip"].lower())
 
         #Hard-coded based on the dataframe. A better way to do this would've been adding a column 
@@ -204,21 +220,73 @@ def main():
             #Fongoli 
             cam_region = 'Fongoli'
         
-        #Locates the name of the camera and the array of trigger hours using the index position of the site in the dataframe
+        #Locates the name of the camera, lat_lon of the camera, and array of all trigger hours using the index position
+        #of the site in the dataframe
         folder = df_cams['filename'].iloc[int(site_index)]
-        triggerHours = df_cams['hours'].iloc[int(site_index)]
+        lat_lon = df_cams['latlon'].iloc[int(site_index)]
+        #triggerHours = df_cams['hours'].iloc[int(site_index)]
 
         #Loads the array of trigger hours in its own dataframe and sends the dataframe to a Plotly chart
-        triggerHours = pd.DataFrame(triggerHours)
-        triggerHours.columns = ['Hour']
-        fig = px.histogram(triggerHours, x = 'Hour')
+        #triggerHours = pd.DataFrame(triggerHours)
+        #triggerHours.columns = ['Hour']
+
+        df_weather = getWeatherData(lat_lon[0], lat_lon[1])
+        temperature_fig = px.line(df_weather, x = 'time', y = 'apparent_temperature')
+        precipitation_fig = px.line(df_weather, x = 'time', y = 'precipitation')
+        pressure_fig = px.line(df_weather, x = 'time', y = 'pressure_msl')
+        wind_speed_fig = px.line(df_weather, x = 'time', y = 'windspeed_10m')
+
+        # Get current time rounded to the nearest hour
+        now = datetime.datetime.now().replace(second=0, microsecond=0, minute=0)
+        rounded_time = now + datetime.timedelta(hours=1) if now.minute >= 30 else now
+
+        # Format rounded time as "YYYY-MM-DDTHH:00"
+        formatted_time = rounded_time.strftime('%Y-%m-%dT%H:%M')
+
+        #Index weather data frame to get current weather data
+        df_weather_current = df_weather[df_weather['time'] == formatted_time]
+        df_weather_current = df_weather_current[['apparent_temperature', 'precipitation', 'pressure_msl', 'windspeed_10m']]
+        arr = pd.DataFrame(df_weather_current).to_numpy()
+        arr.tolist()
+
+
+        st.write("Current Weather Data:") 
+
+        col1, col2, col3, col4 = st.columns(4)
+        col1.metric("Temperature", str(arr[0][0]) + " °C")
+        col2.metric("Precipitation", str(arr[0][1]) + " Mm" )
+        col3.metric("Pressure", str(int(arr[0][2])) + " MSL")
+        col4.metric("Wind Speed ", str(arr[0][3]) + " Km/h")
+
 
         #Finds a sample image of the site based on it's region and name 
         image_path = f"./site_info/Sample_images/{cam_region}/{folder}/sample.jpg"
         
-        #Displays chart and image 
+        #Displays chart and image
+        st.write("Sample Frame:") 
         st.image(image_path)
-        st.plotly_chart(fig, theme = "streamlit", use_container_width = True)
+
+
+        
+
+
+
+
+        st.write("7-Day Forecast")
+        temperature_tab, precipitation_tab, pressure_tab, wind_speed_tab = st.tabs(["Temperature", "Precipiation", "Barometric Pressure", "Wind Speed"])
+        with temperature_tab:
+            st.plotly_chart(temperature_fig, theme = "streamlit", use_container_width = True)
+        with precipitation_tab:
+            st.plotly_chart(precipitation_fig, theme = "streamlit", use_container_width = True)
+        with pressure_tab:
+            st.plotly_chart(pressure_fig, theme = "streamlit", use_container_width = True)
+        with wind_speed_tab:
+            st.plotly_chart(wind_speed_fig, theme = "streamlit", use_container_width = True)
+
+        # fig = px.histogram(triggerHours, x = 'Hour')
+        #st.write(df_weather)
+
+       
 
 
 
