@@ -1,2 +1,2 @@
 ### Demo
-![](https://github.com/shaanchanchani/Visualization-Tool/Demo.gif)
+![](https://github.com/shaanchanchani/Visualization-Tool/blob/main/Demo.gif)
