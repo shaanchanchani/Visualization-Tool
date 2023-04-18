@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import folium 
 from streamlit_folium import st_folium
-import branca.colormap as cmp
 import plotly.express as px
 import json
 import os
@@ -10,19 +9,6 @@ import re
 import glob2
 from openmeteo_py import Hourly, Daily, Options, OWmanager
 import datetime
-
-def getWeatherData(latitude,longitude):
-    # Create Open Meteo API manager
-    hourly = Hourly()
-    daily = Daily()
-    options = Options(latitude, longitude)
-
-    mgr = OWmanager(options,
-                    hourly.all()
-                    )
-    df = mgr.get_data(output=3)
-    return df
-
 
 #Loads GEOJSON file containing Senegal's bounds
 def getSenegalBounds():
@@ -113,12 +99,19 @@ def calcAssirikCenter():
 
 # Call-back function to change zoom location session state whenever the Assirik and Fongoli buttons are pressed
 def handle_zoom_click():
-    if st.session_state.ass_button:
+    if st.session_state.ass_butt:
         st.session_state.location = calcAssirikCenter()
         st.session_state.zoom = 13
-    elif st.session_state.fon_button:
+    elif st.session_state.fon_butt:
         st.session_state.location = calcFongoliCenter()
         st.session_state.zoom = 13
+
+# Call-back function to change show_bubbles session state whenever the Toggle Baboon Bubbbles checkbox is clicked
+def handle_bubble_toggle_click():
+    if st.session_state.bubble:
+        st.session_state.show_bubbles = 'Y'
+    else:
+        st.session_state.show_bubbles = 'N'
 
 # Call-back function to change show_cams session state whenever the Toggle Site Markers checkbox is clicked
 def handle_cam_toggle_click():
@@ -137,17 +130,31 @@ def handle_map_view_click():
     if st.session_state.map_choice:
         st.session_state.tile = map_view_types[st.session_state.map_choice]
 
+
+#This function uses a Python Wrapper for Open Meteo's Weather API. The wrapper allows us to receive the JSON payload as a Pandas Dataframe
+def getWeatherData(latitude,longitude):
+    # Create Open Meteo API manager
+    hourly = Hourly()
+    daily = Daily()
+    options = Options(latitude, longitude)
+
+    mgr = OWmanager(options,
+                    hourly.all()
+                    )
+    df = mgr.get_data(output=3)
+    return df
+
 def main():
     APP_TITLE = 'Project HUNTRESS Visualization Tool'
     st.set_page_config(APP_TITLE)
-    #hides Streamlit menu and ugly watermark
-    # hide_streamlit_style = """
-    #         <style>
-    #         #MainMenu {visibility: hidden;}
-    #         footer {visibility: hidden;}
-    #         </style>
-    #         """
-    # st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+    # hides Streamlit menu and ugly watermark
+    hide_streamlit_style = """
+            <style>
+            #MainMenu {visibility: hidden;}
+            footer {visibility: hidden;}
+            </style>
+            """
+    st.markdown(hide_streamlit_style, unsafe_allow_html=True)
     #Reduce padding above header from 6rem to 1rem
     st.write('<style>div.block-container{padding-top:1rem;}</style>', unsafe_allow_html=True)
     st.title(APP_TITLE)
@@ -158,6 +165,7 @@ def main():
     
     #Initializes session state variables 
     if 'show_cams' not in st.session_state: st.session_state['show_cams'] = 'N'
+    if 'show_bubbles' not in st.session_state: st.session_state['show_bubbles'] = 'N'
     if 'location' not in st.session_state: st.session_state['location'] = [12.90427, -12.39464]
     if 'zoom' not in st.session_state: st.session_state['zoom'] = 8
     if 'cams' not in st.session_state: st.session_state['cams'] = []
@@ -167,9 +175,10 @@ def main():
     #call back function to update session state variables
     toggle_map_view = st.sidebar.radio("Map View:", ['Standard','Topographical','Satellite'], on_change = handle_map_view_click, key = 'map_choice')
     st.sidebar.write('Zoom to')
-    st.sidebar.button('Assirik', on_click = handle_zoom_click, key = 'ass_button')
-    st.sidebar.button('Fongoli', on_click = handle_zoom_click, key = 'fon_button')
+    st.sidebar.button('Assirik', on_click = handle_zoom_click, key = 'ass_butt')
+    st.sidebar.button('Fongoli', on_click = handle_zoom_click, key = 'fon_butt')
     st.sidebar.checkbox("Toggle Site Markers", on_change = handle_cam_toggle_click, key='choice', value = False)
+    st.sidebar.checkbox("Toggle Baboon Bubbles", on_change = handle_bubble_toggle_click, key='bubble', value = False)
 
     # Updates session state for cameras based on the show_cams session state
     # Session state variable for cameras is a list of tuples containing the latitude and longtitude of each site and 
@@ -182,15 +191,27 @@ def main():
             cam_list.append((row['latlon'],index))
     st.session_state.cams = cam_list
 
+    if st.session_state['show_bubbles'] == 'N':
+        bubble_list = [([84.86752,179.93875],0,0)] 
+    elif st.session_state['show_bubbles'] == 'Y':
+        bubble_list = []
+        for index, row in df_cams.iterrows():
+            bubble_list.append((row['latlon'],index, row['baboon_count']))
+    st.session_state.bubbles = bubble_list
+
     #Initializes a folium map 
     map = folium.Map(location = [12.90427, -12.39464], tiles = st.session_state.tile[0], attr = st.session_state.tile[1], zoom_start = 5, max_zoom = 20, min_zoom=2, max_bounds_viscosity = 1.0, max_bounds = True, bounds = senegal_bounds)
 
     #Creates a folium feature group of cameras based on the session state variable for cams 
-    # Sets marker location to the camera's lat-lon and hover information to site index
+    #Sets marker location to the camera's lat-lon and hover information to site index
     fg = folium.FeatureGroup(name = "Cams")
     for cam in st.session_state["cams"]:
         fg.add_child(folium.Marker(location = cam[0], tooltip = f"Site {cam[1]}"))
-    
+
+    #Radius of bubbles is defined in Pixels. This allows us to size them according to Baboon count and scale them according to the map's zoom level
+    for bubble in st.session_state["bubbles"]:
+        fg.add_child(folium.CircleMarker(location = bubble[0], popup = f"Baboon Count: {bubble[2]}", radius = float(bubble[2])*0.5, color = 'crimson', fill = True, fill_color = 'crimson'))
+
     #Displays folium map based on session state variables. Configured to return the last clicked object's tool tip (hover information)
     st_map = st_folium(
         map,
@@ -207,6 +228,7 @@ def main():
     # The tooltip for the site markers is the index position of the site in the dataframe containing every site.
     # It appears as "Site: X"
     if st_map["last_object_clicked_tooltip"]:
+
         # Regex the tooltip string to just an integer containing the site index 
         st.subheader(st_map["last_object_clicked_tooltip"])
         site_index = re.sub(r'[a-z]', '', st_map["last_object_clicked_tooltip"].lower())
@@ -224,13 +246,11 @@ def main():
         #of the site in the dataframe
         folder = df_cams['filename'].iloc[int(site_index)]
         lat_lon = df_cams['latlon'].iloc[int(site_index)]
-        #triggerHours = df_cams['hours'].iloc[int(site_index)]
 
-        #Loads the array of trigger hours in its own dataframe and sends the dataframe to a Plotly chart
-        #triggerHours = pd.DataFrame(triggerHours)
-        #triggerHours.columns = ['Hour']
-
+        #Calls function to make API request based on the lat_lon coordinates of the selected site marker 
         df_weather = getWeatherData(lat_lon[0], lat_lon[1])
+
+        #Creates 4 plots from the dataframe returned by the function that makes the API request 
         temperature_fig = px.line(df_weather, x = 'time', y = 'apparent_temperature')
         precipitation_fig = px.line(df_weather, x = 'time', y = 'precipitation')
         pressure_fig = px.line(df_weather, x = 'time', y = 'pressure_msl')
@@ -249,9 +269,8 @@ def main():
         arr = pd.DataFrame(df_weather_current).to_numpy()
         arr.tolist()
 
-
-        st.write("Current Weather Data:") 
-
+        #Display values
+        st.write("Current Forecasted Data:") 
         col1, col2, col3, col4 = st.columns(4)
         col1.metric("Temperature", str(arr[0][0]) + " °C")
         col2.metric("Precipitation", str(arr[0][1]) + " Mm" )
@@ -266,12 +285,7 @@ def main():
         st.write("Sample Frame:") 
         st.image(image_path)
 
-
-        
-
-
-
-
+        #Displays plots using tabs 
         st.write("7-Day Forecast")
         temperature_tab, precipitation_tab, pressure_tab, wind_speed_tab = st.tabs(["Temperature", "Precipiation", "Barometric Pressure", "Wind Speed"])
         with temperature_tab:
@@ -282,20 +296,6 @@ def main():
             st.plotly_chart(pressure_fig, theme = "streamlit", use_container_width = True)
         with wind_speed_tab:
             st.plotly_chart(wind_speed_fig, theme = "streamlit", use_container_width = True)
-
-        # fig = px.histogram(triggerHours, x = 'Hour')
-        #st.write(df_weather)
-
-       
-
-
-
-
-
-
-
-
- 
 
 if __name__ == "__main__":
     main()
