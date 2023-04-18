@@ -6,10 +6,16 @@ This is a Geographic Information System web app developed for the Video Analytic
 ![](https://github.com/shaanchanchani/Visualization-Tool/blob/main/Demo2.gif)
 
 
-### User Guide:
+### Setup:
+Run the following script to install all the necessary dependencies
+```
+pip install -r requirements.txt
+```
 This program establishes a framework for dynamic information to be displayed when each site marker is selected. Callbacks are used to update the map interface in response to user actions. Session states are used to store user input and keep track of the state of the map across re-runs. Refer to the comments in the `map.py` file for a more detailed explanation for how these features are implemented in the code. 
 
-### Future Work:
+
+
+### Task List:
 - ~~Display Site Markers at each site~~
 - ~~Display preliminary classification results for Baboons~~ 
 - ~~Toggle Map View from Satellite Imagery to Topographical~~
