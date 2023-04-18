@@ -1,6 +1,6 @@
 
 ### Overview:
-This is a Geographic Information System web app developed for the Video Analytics for Understanding Animal Behavior at Purdue University. Our research team is working to support a larger study investigating chimpanzee hunting behavior by interpreting data captured from motion-triggered camera traps in Senegal. The ultimate aim of this project is to provide primatologists with software to geosnatially and temporally visualize prey abundance.
+This is a Geographic Information System web app developed for the Video Analytics for Understanding Animal Behavior at Purdue University. Our research team is working to support a larger study investigating chimpanzee hunting behavior by interpreting data captured from motion-triggered camera traps in Senegal. The ultimate aim of this project is to provide primatologists with software to geospatially and temporally visualize prey abundance.
 
 ### Demo:
 ![](https://github.com/shaanchanchani/Visualization-Tool/blob/main/Demo2.gif)
