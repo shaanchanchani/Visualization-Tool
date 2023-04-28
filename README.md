@@ -11,7 +11,7 @@ Run the following script to install all the necessary dependencies
 ```
 pip install -r requirements.txt
 ```
-This program establishes a framework for dynamic information to be displayed when each site marker is selected. Callbacks are used to update the map interface in response to user actions. Session states are used to store user input and keep track of the state of the map across re-runs. Refer to the comments in the `map.py` file for a more detailed explanation for how these features are implemented in the code. 
+This program establishes a framework for dynamic information to be displayed when each site marker is selected. Callbacks are used to update the map interface in response to user actions. Session states are used to store user input and keep track of the state of the map across re-runs. Refer to the comments in the `map.py` file for a more detailed explanation for how these features are implemented in the code. For those interested in learning more, I found the [State management](https://docs.streamlit.io/library/api-reference/session-state) section of Streamlit's API documentation along with this [video](https://www.youtube.com/watch?v=5l9COMQ3acc&ab_channel=M%C4%B1sraTurp) to be useful resources.
 
 
 
