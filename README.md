@@ -4,7 +4,7 @@ This is a Geographic Information System web app developed for the Video Analytic
 
 ### Demo:
 ![](https://github.com/shaanchanchani/Visualization-Tool/blob/main/Demo2.gif)
-
+*Demo gif may take a second or two to load*
 
 ### Setup:
 Run the following script to install all the necessary dependencies
